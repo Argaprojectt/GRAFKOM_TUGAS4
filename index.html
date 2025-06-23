@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor Grafis 2D Sederhana</title>
+    <style>
+        /* Apply box-sizing globally for consistent layout */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden; /* Prevent body scrollbars */
+            font-family: 'Inter', sans-serif; /* Using Inter font as per guidelines */
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column; /* Arrange controls and canvas vertically */
+            height: 100vh; /* Full viewport height */
+        }
+        
+        #controls {
+            flex-shrink: 0; /* Prevent controls from shrinking */
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 25px;
+            border-bottom: 1px solid #e0e0e0; /* Subtle separator */
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08); /* Softer shadow */
+            z-index: 10;
+            display: flex;
+            flex-wrap: wrap; /* Allow controls to wrap on smaller screens */
+            gap: 15px;
+            align-items: center;
+            justify-content: center; /* Center items horizontally */
+        }
+        #controls div {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        #controls label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+        #controls input[type="color"],
+        #controls input[type="number"],
+        #controls select,
+        #controls button {
+            padding: 10px 15px;
+            border-radius: 8px; /* Rounded corners for inputs and buttons */
+            border: 1px solid #c0c0c0;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            min-width: 100px; /* Ensure buttons have a minimum width */
+            text-align: center;
+        }
+        #controls input[type="color"] {
+            width: 70px;
+            height: 38px;
+            padding: 3px;
+        }
+        #controls input[type="number"] {
+            width: 60px;
+        }
+        #controls select {
+            background-color: #f8f8f8;
+            appearance: none; /* Remove default arrow */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4L146.2%20209.1%205.4%2069.4c-6.1-6.1-16.2-6.1-22.3%200-6.1%206.1-6.1%2016.2%200%2022.3l130.8%20130.8c6.1%206.1%2016.2%206.1%2022.3%200l130.8-130.8c6.1-6.1%206.1-16.2%200-22.3-6.2-6.1-16.3-6.1-22.4%200z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 10px top 50%;
+            background-size: 12px auto;
+        }
+        #controls button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            font-weight: 500;
+            box-shadow: 0 2px 5px rgba(0,123,255,0.2);
+        }
+        #controls button:hover {
+            background-color: #0056b3;
+            box-shadow: 0 4px 10px rgba(0,123,255,0.3);
+            transform: translateY(-1px);
+        }
+        #controls hr {
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        canvas {
+            flex-grow: 1; /* Allow canvas to fill remaining space */
+            display: block;
+            background-color: #ffffff;
+            border: 2px solid #e0e0e0;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 8px; /* Rounded corners for canvas */
+            width: 100%; /* Always full width */
+        }
+
+        /* Responsive adjustments for controls stacking */
+        @media (max-width: 768px) {
+            #controls {
+                flex-direction: column; /* Stack controls vertically */
+                align-items: stretch; /* Stretch items to fill width */
+                padding: 15px;
+            }
+            #controls div, #controls button, #controls select, #controls input {
+                width: 100%; /* Full width for individual controls */
+                min-width: unset; /* Remove min-width constraint */
+            }
+        }
+
+        /* Custom Message Box styles */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 1000;
+            text-align: center;
+            max-width: 300px;
+            font-size: 1.1rem;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .message-box button {
+            margin-top: 15px;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .message-box button:hover {
+            background-color: #0056b3;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <div>
+            <label for="color">Warna:</label>
+            <input type="color" id="color" value="#000000">
+        </div>
+        <div>
+            <label for="thickness">Ketebalan:</label>
+            <input type="number" id="thickness" value="2" min="1" max="10">
+        </div>
+        <div>
+            <label for="mode">Mode:</label>
+            <select id="mode">
+                <option value="point">Titik</option>
+                <option value="line">Garis</option>
+                <option value="rectangle">Persegi</option>
+                <option value="ellipse">Elips</option>
+                <option value="select">Pilih Objek</option>
+                <option value="windowing">Area Windowing</option>
+            </select>
+        </div>
+        <hr>
+        <button id="translate">Translasi</button>
+        <button id="rotate">Rotasi</button>
+        <button id="scale">Skala</button>
+        <hr>
+        <button id="clip">Terapkan Clipping</button>
+        <button id="clear">Bersihkan Kanvas</button>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get control elements
+        const colorInput = document.getElementById('color');
+        const thicknessInput = document.getElementById('thickness');
+        const modeSelect = document.getElementById('mode');
+        const translateButton = document.getElementById('translate');
+        const rotateButton = document.getElementById('rotate');
+        const scaleButton = document.getElementById('scale');
+        const clipButton = document.getElementById('clip');
+        const clearButton = document.getElementById('clear');
+
+        // Application state
+        let drawingMode = 'line'; // Default drawing mode
+        let currentColor = colorInput.value;
+        let currentThickness = thicknessInput.value;
+        let startX, startY; // Starting coordinates for drawing
+        let objects = []; // Array to store all drawn objects
+        let selectedObject = null; // Currently selected object for transformations
+        let windowRect = null; // Clipping window rectangle {x1, y1, x2, y2}
+
+        // Function to resize canvas to fit window
+        function resizeCanvas() {
+            // Get the current window dimensions
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            
+            // Set canvas dimensions to fill the entire window
+            canvas.width = windowWidth;
+            canvas.height = windowHeight;
+
+            drawObjects(); // Redraw objects after resize
+        }
+
+        // Event listener for window resize
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('DOMContentLoaded', resizeCanvas); // Set initial canvas size on load
+
+        // Event listeners for controls
+        colorInput.addEventListener('change', () => {
+            currentColor = colorInput.value;
+            // If an object is selected, update its color
+            if (selectedObject) {
+                selectedObject.color = currentColor;
+                drawObjects();
+            }
+        });
+        thicknessInput.addEventListener('change', () => {
+            currentThickness = thicknessInput.value;
+            // If an object is selected, update its thickness
+            if (selectedObject) {
+                selectedObject.thickness = currentThickness;
+                drawObjects();
+            }
+        });
+        modeSelect.addEventListener('change', (e) => {
+            drawingMode = e.target.value;
+            selectedObject = null; // Deselect object when mode changes
+            windowRect = null; // Clear windowing rectangle when mode changes
+            drawObjects(); // Redraw to clear highlight/windowing visual
+        });
+
+        // Function to draw a single object
+        function drawObject(obj, isPreview = false) {
+            ctx.strokeStyle = obj.color;
+            ctx.lineWidth = obj.thickness;
+            ctx.fillStyle = obj.color; // For points
+
+            if (isPreview) {
+                ctx.setLineDash([5, 5]); // Dashed line for preview
+            } else {
+                ctx.setLineDash([]); // Solid line for final objects
+            }
+
+            switch (obj.type) {
+                case 'point':
+                    ctx.beginPath();
+                    ctx.arc(obj.x, obj.y, obj.thickness / 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                    break;
+                case 'line':
+                    ctx.beginPath();
+                    ctx.moveTo(obj.x1, obj.y1);
+                    ctx.lineTo(obj.x2, obj.y2);
+                    ctx.stroke();
+                    break;
+                case 'rectangle':
+                    ctx.strokeRect(Math.min(obj.x1, obj.x2), Math.min(obj.y1, obj.y2), Math.abs(obj.x2 - obj.x1), Math.abs(obj.y2 - obj.y1));
+                    break;
+                case 'ellipse':
+                    ctx.beginPath();
+                    const centerX = (obj.x1 + obj.x2) / 2;
+                    const centerY = (obj.y1 + obj.y2) / 2;
+                    const radiusX = Math.abs(obj.x2 - obj.x1) / 2;
+                    const radiusY = Math.abs(obj.y2 - obj.y1) / 2;
+                    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    break;
+            }
+            ctx.setLineDash([]); // Ensure line dash is reset after drawing
+        }
+
+        // Function to draw all objects on the canvas
+        function drawObjects() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the entire canvas
+
+            // Draw windowing rectangle if it exists
+            if (windowRect) {
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 2]); // Dashed line
+                ctx.strokeRect(Math.min(windowRect.x1, windowRect.x2), Math.min(windowRect.y1, windowRect.y2),
+                               Math.abs(windowRect.x2 - windowRect.x1), Math.abs(windowRect.y2 - windowRect.y1));
+                ctx.setLineDash([]); // Reset to solid line
+            }
+
+            // Draw all stored objects
+            objects.forEach(obj => {
+                // Change color for objects intersecting the windowing area if in windowing mode
+                if (drawingMode === 'windowing' && windowRect && isObjectIntersectingWindow(obj, windowRect)) {
+                    const originalColor = obj.color;
+                    obj.color = 'blue'; // Highlight intersecting objects in blue
+                    drawObject(obj);
+                    obj.color = originalColor; // Restore original color for next draw cycles
+                } else {
+                    drawObject(obj);
+                }
+            });
+
+            // Highlight the selected object
+            if (selectedObject) {
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([3, 2]);
+                const buffer = 5; // Add a small buffer for clearer highlight
+                switch (selectedObject.type) {
+                    case 'point':
+                        ctx.beginPath();
+                        ctx.arc(selectedObject.x, selectedObject.y, parseInt(selectedObject.thickness) / 2 + buffer, 0, 2 * Math.PI);
+                        ctx.stroke();
+                        break;
+                    case 'line':
+                        ctx.beginPath();
+                        ctx.moveTo(selectedObject.x1, selectedObject.y1);
+                        ctx.lineTo(selectedObject.x2, selectedObject.y2);
+                        ctx.stroke();
+                        break;
+                    case 'rectangle':
+                        ctx.strokeRect(Math.min(selectedObject.x1, selectedObject.x2) - buffer, Math.min(selectedObject.y1, selectedObject.y2) - buffer,
+                                       Math.abs(selectedObject.x2 - selectedObject.x1) + 2 * buffer, Math.abs(selectedObject.y2 - selectedObject.y1) + 2 * buffer);
+                        break;
+                    case 'ellipse':
+                        ctx.beginPath();
+                        const centerX = (selectedObject.x1 + selectedObject.x2) / 2;
+                        const centerY = (selectedObject.y1 + selectedObject.y2) / 2;
+                        const radiusX = Math.abs(selectedObject.x2 - selectedObject.x1) / 2 + buffer;
+                        const radiusY = Math.abs(selectedObject.y2 - selectedObject.y1) / 2 + buffer;
+                        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+                        ctx.stroke();
+                        break;
+                }
+                ctx.setLineDash([]); // Reset to solid line
+            }
+        }
+
+        // Function to get object at given coordinates for selection
+        function getObjectAt(x, y) {
+            // Iterate in reverse to select topmost object
+            for (let i = objects.length - 1; i >= 0; i--) {
+                const obj = objects[i];
+                switch (obj.type) {
+                    case 'point':
+                        const dist = Math.sqrt((x - obj.x) ** 2 + (y - obj.y) ** 2);
+                        if (dist <= parseInt(obj.thickness) / 2 + 5) { // Add buffer for easier selection
+                            return obj;
+                        }
+                        break;
+                    case 'line':
+                        // Precise hit-testing for lines (distance from point to segment)
+                        const distToSegment = distancePointToSegment(x, y, obj.x1, obj.y1, obj.x2, obj.y2);
+                        if (distToSegment <= 5) { // Within 5 pixels of the line
+                            return obj;
+                        }
+                        break;
+                    case 'rectangle':
+                        // Check if point is inside the rectangle's bounding box
+                        if (x >= Math.min(obj.x1, obj.x2) && x <= Math.max(obj.x1, obj.x2) &&
+                            y >= Math.min(obj.y1, obj.y2) && y <= Math.max(obj.y1, obj.y2)) {
+                            return obj;
+                        }
+                        break;
+                    case 'ellipse':
+                        // Check if point is inside the ellipse
+                        const centerX = (obj.x1 + obj.x2) / 2;
+                        const centerY = (obj.y1 + obj.y2) / 2;
+                        const radiusX = Math.abs(obj.x2 - obj.x1) / 2;
+                        const radiusY = Math.abs(obj.y2 - obj.y1) / 2;
+                        if (radiusX === 0 || radiusY === 0) continue; // Avoid division by zero
+                        if (((x - centerX) ** 2 / radiusX ** 2) + ((y - centerY) ** 2 / radiusY ** 2) <= 1) {
+                            return obj;
+                        }
+                        break;
+                }
+            }
+            return null;
+        }
+
+        // Helper function: Distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)
+        function distancePointToSegment(px, py, x1, y1, x2, y2) {
+            const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+            if (l2 === 0) { // Segment is a point
+                return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+            }
+            const t = Math.max(0, Math.min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2));
+            const projX = x1 + t * (x2 - x1);
+            const projY = y1 + t * (y2 - y1);
+            return Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
+        }
+
+        // Event listeners for mouse actions on canvas
+        canvas.addEventListener('mousedown', (e) => {
+            // Get mouse coordinates relative to the canvas
+            const rect = canvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+
+            if (drawingMode === 'select') {
+                selectedObject = getObjectAt(startX, startY);
+                drawObjects();
+            } else if (drawingMode === 'windowing') {
+                windowRect = { x1: startX, y1: startY, x2: startX, y2: startY };
+                drawObjects(); // Draw initial window rect
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (startX === undefined || startY === undefined) return; // Only draw if mouse is pressed
+
+            const rect = canvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+
+            drawObjects(); // Clear and redraw all objects (including windowing rect if active)
+
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = currentThickness;
+
+            // Draw preview based on current drawing mode
+            switch (drawingMode) {
+                case 'line':
+                    drawObject({ type: 'line', x1: startX, y1: startY, x2: currentX, y2: currentY, color: currentColor, thickness: currentThickness }, true);
+                    break;
+                case 'rectangle':
+                    drawObject({ type: 'rectangle', x1: startX, y1: startY, x2: currentX, y2: currentY, color: currentColor, thickness: currentThickness }, true);
+                    break;
+                case 'ellipse':
+                    drawObject({ type: 'ellipse', x1: startX, y1: startY, x2: currentX, y2: currentY, color: currentColor, thickness: currentThickness }, true);
+                    break;
+                case 'windowing':
+                    windowRect = { x1: startX, y1: startY, x2: currentX, y2: currentY };
+                    break;
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (startX === undefined || startY === undefined) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+
+            // Add new object to the array based on drawing mode
+            let newObject = null;
+            if (drawingMode === 'point') {
+                newObject = { type: 'point', x: startX, y: startY, color: currentColor, thickness: currentThickness };
+            } else if (drawingMode === 'line') {
+                newObject = { type: 'line', x1: startX, y1: startY, x2: endX, y2: endY, color: currentColor, thickness: currentThickness };
+            } else if (drawingMode === 'rectangle') {
+                newObject = { type: 'rectangle', x1: startX, y1: startY, x2: endX, y2: endY, color: currentColor, thickness: currentThickness };
+            } else if (drawingMode === 'ellipse') {
+                newObject = { type: 'ellipse', x1: startX, y1: startY, x2: endX, y2: endY, color: currentColor, thickness: currentThickness };
+            }
+
+            if (newObject) {
+                objects.push(newObject);
+            }
+
+            startX = undefined; // Reset start coordinates
+            startY = undefined;
+            drawObjects(); // Redraw all objects in their final state
+        });
+
+        // Check if an object intersects the windowing rectangle
+        function isObjectIntersectingWindow(obj, windowRect) {
+            const wx1 = Math.min(windowRect.x1, windowRect.x2);
+            const wy1 = Math.min(windowRect.y1, windowRect.y2);
+            const wx2 = Math.max(windowRect.x1, windowRect.x2);
+            const wy2 = Math.max(windowRect.y1, windowRect.y2);
+
+            switch (obj.type) {
+                case 'point':
+                    return (obj.x >= wx1 && obj.x <= wx2 && obj.y >= wy1 && obj.y <= wy2);
+                case 'line':
+                    // Use Cohen-Sutherland for intersection test for lines
+                    const clippedLine = cohenSutherlandClip(obj.x1, obj.y1, obj.x2, obj.y2, wx1, wy1, wx2, wy2, true);
+                    return clippedLine; // True if any part of the line is inside/intersects
+                case 'rectangle':
+                case 'ellipse': // For ellipse, we approximate with its bounding box
+                    const obj_min_x = Math.min(obj.x1, obj.x2);
+                    const obj_max_x = Math.max(obj.x1, obj.x2);
+                    const obj_min_y = Math.min(obj.y1, obj.y2);
+                    const obj_max_y = Math.max(obj.y1, obj.y2);
+
+                    // Check for overlap of bounding boxes
+                    return !(obj_max_x < wx1 || obj_min_x > wx2 ||
+                             obj_max_y < wy1 || obj_min_y > wy2);
+                default:
+                    return false;
+            }
+        }
+
+        // Function to handle transformations (translate, rotate, scale)
+        function transformObject(transformType) {
+            if (!selectedObject) {
+                showMessage('Pilih objek dulu sebelum melakukan transformasi!');
+                return;
+            }
+
+            let value1, value2;
+            if (transformType === 'translate' || transformType === 'scale') {
+                value1 = prompt(`Masukkan nilai ${transformType === 'translate' ? 'pergeseran' : 'faktor skala'} X:`);
+                if (value1 === null) return; // User cancelled
+                value2 = prompt(`Masukkan nilai ${transformType === 'translate' ? 'pergeseran' : 'faktor skala'} Y (opsional, tekan OK untuk sama dengan X):`);
+                if (value2 === null) value2 = value1; // If user cancels Y, use X value
+                value1 = parseFloat(value1);
+                value2 = parseFloat(value2 || value1); // Use value1 if value2 is empty
+                if (isNaN(value1) || isNaN(value2)) {
+                    showMessage('Input tidak valid. Masukkan angka.');
+                    return;
+                }
+            } else if (transformType === 'rotate') {
+                value1 = prompt('Masukkan sudut rotasi (derajat):');
+                if (value1 === null) return; // User cancelled
+                value1 = parseFloat(value1);
+                if (isNaN(value1)) {
+                    showMessage('Input tidak valid. Masukkan angka.');
+                    return;
+                }
+            }
+
+            // Apply transformation directly to the selected object
+            const obj = selectedObject; // Reference the selected object directly
+
+            try {
+                if (transformType === 'translate') {
+                    const dx = value1;
+                    const dy = value2;
+                    if (obj.type === 'point') {
+                        obj.x += dx;
+                        obj.y += dy;
+                    } else if (obj.type === 'line' || obj.type === 'rectangle' || obj.type === 'ellipse') {
+                        obj.x1 += dx;
+                        obj.y1 += dy;
+                        obj.x2 += dx;
+                        obj.y2 += dy;
+                    }
+                } else if (transformType === 'rotate') {
+                    const angle_rad = value1 * Math.PI / 180; // Convert degrees to radians
+
+                    let cx, cy;
+                    if (obj.type === 'point') {
+                        cx = obj.x;
+                        cy = obj.y;
+                    } else { // line, rectangle, ellipse
+                        cx = (obj.x1 + obj.x2) / 2;
+                        cy = (obj.y1 + obj.y2) / 2;
+                    }
+
+                    if (obj.type === 'point') {
+                        const px = obj.x;
+                        const py = obj.y;
+                        obj.x = cx + (px - cx) * Math.cos(angle_rad) - (py - cy) * Math.sin(angle_rad);
+                        obj.y = cy + (px - cx) * Math.sin(angle_rad) + (py - cy) * Math.cos(angle_rad);
+                    } else if (obj.type === 'line') {
+                        const p1x = obj.x1;
+                        const p1y = obj.y1;
+                        const p2x = obj.x2;
+                        const p2y = obj.y2;
+
+                        obj.x1 = cx + (p1x - cx) * Math.cos(angle_rad) - (p1y - cy) * Math.sin(angle_rad);
+                        obj.y1 = cy + (p1x - cx) * Math.sin(angle_rad) + (p1y - cy) * Math.cos(angle_rad);
+                        obj.x2 = cx + (p2x - cx) * Math.cos(angle_rad) - (p2y - cy) * Math.sin(angle_rad);
+                        obj.y2 = cy + (p2x - cx) * Math.sin(angle_rad) + (p2y - cy) * Math.cos(angle_rad);
+                    } else if (obj.type === 'rectangle') {
+                        // For rectangles, rotate its corners and then re-calculate the bounding box.
+                        const corners = [
+                            { x: obj.x1, y: obj.y1 },
+                            { x: obj.x2, y: obj.y1 },
+                            { x: obj.x2, y: obj.y2 },
+                            { x: obj.x1, y: obj.y2 }
+                        ];
+                        const rotatedCorners = [];
+                        for (const p of corners) {
+                            const new_x = cx + (p.x - cx) * Math.cos(angle_rad) - (p.y - cy) * Math.sin(angle_rad);
+                            const new_y = cy + (p.x - cx) * Math.sin(angle_rad) + (p.y - cy) * Math.cos(angle_rad);
+                            rotatedCorners.push({ x: new_x, y: new_y });
+                        }
+
+                        const all_xs = rotatedCorners.map(p => p.x);
+                        const all_ys = rotatedCorners.map(p => p.y);
+                        obj.x1 = Math.min(...all_xs);
+                        obj.y1 = Math.min(...all_ys);
+                        obj.x2 = Math.max(...all_xs);
+                        obj.y2 = Math.max(...all_ys);
+                    } else if (obj.type === 'ellipse') {
+                        // For ellipses, just rotate its center.
+                        const px = (obj.x1 + obj.x2) / 2;
+                        const py = (obj.y1 + obj.y2) / 2;
+
+                        const rotated_x = cx + (px - cx) * Math.cos(angle_rad) - (py - cy) * Math.sin(angle_rad);
+                        const rotated_y = cy + (px - cx) * Math.sin(angle_rad) + (py - cy) * Math.cos(angle_rad);
+
+                        const width = obj.x2 - obj.x1;
+                        const height = obj.y2 - obj.y1;
+                        obj.x1 = rotated_x - width / 2;
+                        obj.y1 = rotated_y - height / 2;
+                        obj.x2 = rotated_x + width / 2;
+                        obj.y2 = rotated_y + height / 2;
+                    }
+
+                } else if (transformType === 'scale') {
+                    const sx = value1;
+                    const sy = value2;
+
+                    let cx, cy;
+                    if (obj.type === 'point') {
+                        // For points, scaling affects position relative to origin (0,0)
+                        obj.x *= sx;
+                        obj.y *= sy;
+                    } else { // line, rectangle, ellipse
+                        cx = (obj.x1 + obj.x2) / 2;
+                        cy = (obj.y1 + obj.y2) / 2;
+                        
+                        obj.x1 = cx + (obj.x1 - cx) * sx;
+                        obj.y1 = cy + (obj.y1 - cy) * sy;
+                        obj.x2 = cx + (obj.x2 - cx) * sx;
+                        obj.y2 = cy + (obj.y2 - cy) * sy;
+                    }
+                }
+                drawObjects(); // Redraw after transformation
+            } catch (error) {
+                console.error('Error during transformation:', error);
+                showMessage('Terjadi kesalahan saat melakukan transformasi.');
+            }
+        }
+
+        translateButton.addEventListener('click', () => transformObject('translate'));
+        rotateButton.addEventListener('click', () => transformObject('rotate'));
+        scaleButton.addEventListener('click', () => transformObject('scale'));
+
+        // Function to handle clipping
+        clipButton.addEventListener('click', () => {
+            if (!windowRect) {
+                showMessage('Silakan gambar area windowing terlebih dahulu menggunakan mode "Area Windowing".');
+                return;
+            }
+
+            // Normalize windowRect coordinates
+            const normalizedWindowRect = {
+                x1: Math.min(windowRect.x1, windowRect.x2),
+                y1: Math.min(windowRect.y1, windowRect.y2),
+                x2: Math.max(windowRect.x1, windowRect.x2),
+                y2: Math.max(windowRect.y1, windowRect.y2)
+            };
+
+            const newClippedObjects = [];
+
+            for (const obj of objects) {
+                if (obj.type === 'point') {
+                    if (isObjectIntersectingWindow(obj, normalizedWindowRect)) {
+                        newClippedObjects.push(obj);
+                    }
+                } else if (obj.type === 'line') {
+                    const clippedLineCoords = cohenSutherlandClip(obj.x1, obj.y1, obj.x2, obj.y2,
+                                                                   normalizedWindowRect.x1, normalizedWindowRect.y1,
+                                                                   normalizedWindowRect.x2, normalizedWindowRect.y2);
+                    if (clippedLineCoords) {
+                        newClippedObjects.push({
+                            type: 'line',
+                            x1: clippedLineCoords[0], y1: clippedLineCoords[1],
+                            x2: clippedLineCoords[2], y2: clippedLineCoords[3],
+                            color: obj.color, thickness: obj.thickness
+                        });
+                    }
+                } else if (obj.type === 'rectangle') {
+                    // Clip rectangle by finding the intersection of its bounding box with the window
+                    const obj_min_x = Math.min(obj.x1, obj.x2);
+                    const obj_max_x = Math.max(obj.x1, obj.x2);
+                    const obj_min_y = Math.min(obj.y1, obj.y2);
+                    const obj_max_y = Math.max(obj.y1, obj.y2);
+
+                    const new_x1 = Math.max(obj_min_x, normalizedWindowRect.x1);
+                    const new_y1 = Math.max(obj_min_y, normalizedWindowRect.y1);
+                    const new_x2 = Math.min(obj_max_x, normalizedWindowRect.x2);
+                    const new_y2 = Math.min(obj_max_y, normalizedWindowRect.y2);
+
+                    if (new_x2 > new_x1 && new_y2 > new_y1) { // Ensure the clipped rectangle is still valid
+                        newClippedObjects.push({
+                            type: 'rectangle',
+                            x1: new_x1, y1: new_y1,
+                            x2: new_x2, y2: new_y2,
+                            color: obj.color, thickness: obj.thickness
+                        });
+                    }
+                } else if (obj.type === 'ellipse') {
+                    // For ellipses, we simplify by only including them if their entire bounding box
+                    // is within the clipping window. Partial ellipse clipping is much more complex.
+                    const obj_min_x = Math.min(obj.x1, obj.x2);
+                    const obj_max_x = Math.max(obj.x1, obj.x2);
+                    const obj_min_y = Math.min(obj.y1, obj.y2);
+                    const obj_max_y = Math.max(obj.y1, obj.y2);
+
+                    if (obj_min_x >= normalizedWindowRect.x1 && obj_max_x <= normalizedWindowRect.x2 &&
+                        obj_min_y >= normalizedWindowRect.y1 && obj_max_y <= normalizedWindowRect.y2) {
+                        newClippedObjects.push(obj);
+                    }
+                }
+            }
+            objects = newClippedObjects; // Update the global objects array
+            windowRect = null; // Clear the windowing rectangle after clipping
+            selectedObject = null; // Deselect any object
+            drawObjects();
+            showMessage('Clipping berhasil diterapkan!');
+        });
+
+        // Cohen-Sutherland line clipping algorithm (for client-side intersection check and actual clipping)
+        function cohenSutherlandClip(x1, y1, x2, y2, xmin, ymin, xmax, ymax, testOnly = false) {
+            const INSIDE = 0; // 0000
+            const LEFT = 1;    // 0001
+            const RIGHT = 2;   // 0010
+            const BOTTOM = 4;  // 0100
+            const TOP = 8;     // 1000
+
+            function computeOutCode(x, y) {
+                let code = INSIDE;
+                if (x < xmin)      code |= LEFT;
+                else if (x > xmax)    code |= RIGHT;
+                if (y < ymin)      code |= BOTTOM;
+                else if (y > ymax)    code |= TOP;
+                return code;
+            }
+
+            let outcode1 = computeOutCode(x1, y1);
+            let outcode2 = computeOutCode(x2, y2);
+            let accept = false;
+
+            while (true) {
+                if ((outcode1 === 0) && (outcode2 === 0)) {
+                    accept = true;
+                    break;
+                } else if ((outcode1 & outcode2) !== 0) {
+                    break;
+                } else {
+                    let x, y;
+                    const outcodeOut = outcode1 !== 0 ? outcode1 : outcode2;
+
+                    if (outcodeOut & TOP) {
+                        x = x1 + (x2 - x1) * (ymax - y1) / (y2 - y1);
+                        y = ymax;
+                    } else if (outcodeOut & BOTTOM) {
+                        x = x1 + (x2 - x1) * (ymin - y1) / (y2 - y1);
+                        y = ymin;
+                    } else if (outcodeOut & RIGHT) {
+                        y = y1 + (y2 - y1) * (xmax - x1) / (x2 - x1);
+                        x = xmax;
+                    } else if (outcodeOut & LEFT) {
+                        y = y1 + (y2 - y1) * (xmin - x1) / (x2 - x1);
+                        x = xmin;
+                    }
+
+                    if (outcodeOut === outcode1) {
+                        x1 = x;
+                        y1 = y;
+                        outcode1 = computeOutCode(x1, y1);
+                    } else {
+                        x2 = x;
+                        y2 = y;
+                        outcode2 = computeOutCode(x2, y2);
+                    }
+                }
+            }
+
+            if (testOnly) {
+                return accept;
+            } else if (accept) {
+                return [x1, y1, x2, y2]; // Return as an array for clipped line coordinates
+            } else {
+                return null;
+            }
+        }
+
+        // Custom message box function (replaces alert())
+        function showMessage(message) {
+            // Create a simple modal/message div
+            const messageBox = document.createElement('div');
+            messageBox.className = 'message-box'; // Apply CSS class
+            messageBox.innerHTML = `<p>${message}</p><button id="msgBoxOk">OK</button>`;
+            
+            document.body.appendChild(messageBox);
+
+            document.getElementById('msgBoxOk').addEventListener('click', () => {
+                // Add a fade-out animation before removal
+                messageBox.style.animation = 'fadeOut 0.3s ease-in forwards';
+                messageBox.addEventListener('animationend', () => {
+                    document.body.removeChild(messageBox);
+                }, { once: true }); // Ensure listener is removed after first use
+            });
+
+            // Add fadeOut keyframe to CSS
+            if (!document.querySelector('style').textContent.includes('@keyframes fadeOut')) {
+                const styleSheet = document.querySelector('style');
+                styleSheet.textContent += `
+                    @keyframes fadeOut {
+                        from { opacity: 1; }
+                        to { opacity: 0; }
+                    }
+                `;
+            }
+        }
+
+        // Clear canvas button
+        clearButton.addEventListener('click', () => {
+            objects = [];
+            windowRect = null;
+            selectedObject = null;
+            drawObjects();
+            showMessage('Kanvas dibersihkan!');
+        });
+
+    </script>
+</body>
+</html>
